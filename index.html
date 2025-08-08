@@ -4,6 +4,10 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Circuit Breaker Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <style>
+      title { font-size: 48px; }
+    </style>
     <style>
       :root {
         --bg: radial-gradient(1200px 800px at 20% 0%, #0e1a3a 0%, #0b1020 60%), #0b1020;
@@ -77,11 +81,11 @@
 
       <section class="hero">
         <div class="hero-card">
-          <div class="hero-label">Pro‑rata progress <span id="hero-state" class="pill">—</span></div>
+          <div class="hero-label"><span id="hero-state" class="pill">—</span></div>
           <div id="hero-pace-delta" class="hero-value">—</div>
         </div>
         <div class="hero-card">
-          <div class="hero-label">Multiplier needed</div>
+          <div class="hero-label">Speed up needed to catch up</div>
           <div id="hero-multiplier" class="hero-value">—</div>
         </div>
       </section>
@@ -90,11 +94,11 @@
 
       <div class="grid-2">
         <div class="card">
-            <div class="label">Days so far (since Jan 1, 2023)</div>
+            <div class="label">Days since Jan 1, 2023</div>
             <div id="days-so-far" class="value">—</div>
           </div>
         <div class="card">
-          <div class="label">Days remaining (to Jan 31, 2027)</div>
+          <div class="label">Circuit breaker triggers in</div>
           <div id="days-remaining" class="value">—</div>
           <div id="deadline-note" class="small"></div>
         </div>
@@ -109,7 +113,7 @@
         </div>
         <div class="card">
           <div class="label">Required pace</div>
-          <div id="pace-required-note" class="small">Average units/year needed to hit 29,049</div>
+          <div id="pace-required-note" class="small">Units/year needed to hit 29,049</div>
           <div id="pace-required" class="value">—</div>
         </div>
       </div>
@@ -218,14 +222,14 @@
           const daysElapsed = msElapsed / 86400000;
           const msLeft = Math.max(0, DEADLINE - retrievedAt);
           const daysLeft = msLeft / 86400000;
-          daysRemainingEl.textContent = Math.floor(daysLeft);
+          daysRemainingEl.textContent = Math.floor(daysLeft) + ' days';
           deadlineNoteEl.textContent = daysLeft <= 0 ? 'Past deadline window' : '';
-          daysSoFarEl.textContent = Math.floor(daysElapsed);
+          daysSoFarEl.textContent = Math.floor(daysElapsed) + ' days';
 
           const expectedByNow = TARGET * (msElapsed / Math.max(1, DEADLINE - START));
           const aheadBehind = Math.round(total - expectedByNow);
           const sign = aheadBehind >= 0 ? '+' : '';
-          heroPaceDeltaEl.textContent = `${sign}${formatNumber(aheadBehind)}`;
+          heroPaceDeltaEl.textContent = `${sign}${formatNumber(aheadBehind)} units`;
           heroPaceDeltaEl.classList.toggle('good', aheadBehind >= 0);
           heroPaceDeltaEl.classList.toggle('bad', aheadBehind < 0);
           heroStateEl.textContent = aheadBehind >= 0 ? 'Ahead of pace' : 'Behind pace';
