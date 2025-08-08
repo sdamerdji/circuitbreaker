@@ -1,0 +1,466 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Circuit Breaker Dashboard</title>
+    <style>
+      :root {
+        --bg: radial-gradient(1200px 800px at 20% 0%, #0e1a3a 0%, #0b1020 60%), #0b1020;
+        --card: rgba(18, 26, 51, 0.8);
+        --text: #e9eefb;
+        --muted: #9fb2d9;
+        --accent: #6aa6ff;
+        --good: #34d399;
+        --bad: #ef4444;
+        --glow: 0 10px 30px rgba(106, 166, 255, 0.18), inset 0 0 0 1px rgba(255,255,255,0.04);
+      }
+      html, body {
+        margin: 0; padding: 0; height: 100%; background: var(--bg); color: var(--text); background-attachment: fixed;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      }
+      .container { max-width: 980px; margin: 0 auto; padding: 40px 20px 96px; }
+      header { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 24px; }
+      h1 { font-size: 28px; margin: 0; font-weight: 700; letter-spacing: 0.2px; }
+      .subtitle { color: var(--muted); font-size: 14px; }
+      .hero { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; margin: 10px 0 22px; }
+      .hero-card { position: relative; border-radius: 18px; padding: 22px 24px; background: linear-gradient(135deg, rgba(30,58,138,0.75), rgba(17,24,39,0.85)); box-shadow: var(--glow); overflow: hidden; }
+      .hero-card::after { content: ""; position: absolute; inset: -2px; background: radial-gradient(400px 140px at 10% 0%, rgba(106,166,255,0.22), rgba(0,0,0,0)); pointer-events: none; }
+      .hero-label { color: var(--muted); font-size: 13px; letter-spacing: 0.04em; margin-bottom: 10px; }
+      .hero-value { font-size: 64px; font-weight: 800; line-height: 1.05; letter-spacing: -0.5px; }
+      .hero-value.good { color: var(--good); }
+      .hero-value.bad { color: var(--bad); }
+      .pill { display: inline-block; padding: 6px 10px; border-radius: 999px; font-size: 12px; margin-left: 8px; background: rgba(255,255,255,0.08); color: var(--muted); border: 1px solid rgba(255,255,255,0.06); vertical-align: middle; }
+
+      .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+      .card { background: var(--card); border-radius: 14px; padding: 18px 20px; box-shadow: var(--glow); backdrop-filter: blur(8px); }
+      .label { color: var(--muted); font-size: 13px; letter-spacing: 0.02em; margin-bottom: 4px; }
+      .value { font-size: 42px; font-weight: 700; line-height: 1.15; }
+      .value.good { color: var(--good); }
+      .value.target { color: var(--accent); }
+      .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-top: 16px; }
+      .small { font-size: 12px; color: var(--muted); margin-top: 6px; }
+      .bad { color: var(--bad); }
+      .accent { color: var(--accent); }
+      .progress-card { margin-top: 16px; position: relative; z-index: 5; }
+      .progress { height: 16px; background: rgba(255,255,255,0.06); border-radius: 999px; overflow: hidden; position: relative; }
+      .progress .bar { position: absolute; top: 0; left: 0; height: 100%; transition: width 0.7s ease; }
+      .bar.actual { background: linear-gradient(90deg, #34d399 0%, #10b981 100%); }
+      .bar.expected { background: linear-gradient(90deg, #93c5fd 0%, #60a5fa 100%); opacity: 0.5; }
+      .progress-legend { display: flex; gap: 16px; margin-top: 10px; color: var(--muted); font-size: 12px; }
+      .legend-item { display: inline-flex; align-items: center; gap: 6px; }
+      .legend-swatch { width: 10px; height: 10px; border-radius: 2px; }
+      .chart-card { margin-top: 16px; position: relative; }
+      .chart-wrap { position: relative; width: 100%; height: 280px; }
+      svg.chart { width: 100%; height: 100%; display: block; }
+      .chart-grid line { stroke: rgba(255,255,255,0.08); stroke-width: 1; }
+      .line-expected { stroke: #60a5fa; stroke-width: 2; fill: none; }
+      .line-actual { stroke: #10b981; stroke-width: 3; fill: none; }
+      .hover-line { stroke: rgba(255,255,255,0.25); stroke-dasharray: 4 3; }
+      .tooltip { position: fixed; pointer-events: none; background: rgba(9,12,26,0.95); color: var(--text); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 8px 12px; font-size: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); white-space: nowrap; z-index: 1000; transform: translate(-50%, -100%); }
+      .tooltip .t-title { color: var(--muted); margin-bottom: 6px; }
+      .legend-dot { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px; vertical-align:middle; }
+      .axis line { stroke: rgba(255,255,255,0.2); stroke-width: 1.25; }
+      .axis text { fill: var(--muted); font-size: 11px; }
+      .foot { margin-top: 24px; color: var(--muted); font-size: 13px; }
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+      a { color: var(--accent); text-decoration: none; }
+      a:hover { text-decoration: underline; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>Circuit Breaker Dashboard</h1>
+        <div class="subtitle">Updated daily from official data</div>
+      </header>
+
+      <section class="hero">
+        <div class="hero-card">
+          <div class="hero-label">Pro‑rata progress <span id="hero-state" class="pill">—</span></div>
+          <div id="hero-pace-delta" class="hero-value">—</div>
+        </div>
+        <div class="hero-card">
+          <div class="hero-label">Multiplier needed</div>
+          <div id="hero-multiplier" class="hero-value">—</div>
+        </div>
+      </section>
+
+
+
+      <div class="grid-2">
+        <div class="card">
+            <div class="label">Days so far (since Jan 1, 2023)</div>
+            <div id="days-so-far" class="value">—</div>
+          </div>
+        <div class="card">
+          <div class="label">Days remaining (to Jan 31, 2027)</div>
+          <div id="days-remaining" class="value">—</div>
+          <div id="deadline-note" class="small"></div>
+        </div>
+
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="label">Pace so far</div>
+          <div class="small">Average units/year since 2023-01-01</div>
+          <div id="pace-so-far" class="value">—</div>
+        </div>
+        <div class="card">
+          <div class="label">Required pace</div>
+          <div id="pace-required-note" class="small">Average units/year needed to hit 29,049</div>
+          <div id="pace-required" class="value">—</div>
+        </div>
+      </div>
+
+      <div class="card progress-card">
+        <div class="label">Progress vs. linear pace</div>
+        <div class="progress" aria-label="Progress">
+          <div id="bar-expected" class="bar expected" style="width:0%"></div>
+          <div id="bar-actual" class="bar actual" style="width:0%"></div>
+        </div>
+        <div class="progress-legend">
+          <span class="legend-item"><span class="legend-swatch" style="background:#93c5fd"></span>Expected by now</span>
+          <span class="legend-item"><span class="legend-swatch" style="background:#34d399"></span>Actual</span>
+        </div>
+      </div>
+
+      <div class="card chart-card">
+        <div class="label">Cumulative progress (hover for values)</div>
+        <div class="chart-wrap">
+          <svg id="chart" class="chart" viewBox="0 0 900 280" preserveAspectRatio="none">
+            <g class="chart-grid" id="grid"></g>
+            <g class="axis" id="axisX"></g>
+            <g class="axis" id="axisY"></g>
+            <path id="expectedPath" class="line-expected" d="" />
+            <path id="actualPath" class="line-actual" d="" />
+            <line id="hoverLine" class="hover-line" x1="0" y1="0" x2="0" y2="0" visibility="hidden"></line>
+          </svg>
+          <div id="tooltip" class="tooltip" style="display:none"></div>
+        </div>
+      </div>
+      <div class="cards" style="margin-top:16px">
+        <div class="card">
+          <div class="label">Total units</div>
+          <div id="total" class="value good">—</div>
+        </div>
+        <div class="card">
+          <div class="label">Target</div>
+          <div id="target" class="value target">29,049</div>
+        </div>
+        <div class="card">
+          <div class="label">Remaining to target</div>
+          <div id="remaining" class="value">—</div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <div class="label">About the Circuit Breaker</div>
+        <div class="small" style="line-height:1.5">
+          If the City issues building permits for fewer than <strong>29,049</strong> new homes by <strong>January 31, 2027</strong>, then the City must
+          enact and implement additional rezoning outside of Priority Equity Geographies and areas vulnerable to displacement, and additional
+          constraints reductions for housing projects. The scale of this action must accommodate <strong>115%</strong> of the shortfall (net of capacity created in Action 7.1.1),
+          and shall not add new constraints beyond those in effect as of January 31, 2027. This dashboard tracks progress toward that threshold.
+        </div>
+      </div>
+      <div class="foot">
+        <div>Last updated: <span id="updated" class="mono">—</span></div>
+        <div>Source: <a href="https://data.sfgov.org/resource/i98e-djp9.json" target="_blank" rel="noreferrer">SF Building Permits API</a></div>
+      </div>
+
+
+    </div>
+
+    <script>
+      const TARGET = 29049;
+      const totalsUrl = 'public_data/totals.json';
+      const START = new Date('2023-01-01T00:00:00-08:00');
+      const DEADLINE = new Date('2027-01-31T23:59:59-08:00');
+      const monthlyUrl = 'public_data/monthly.json';
+
+      function formatNumber(n) {
+        try { return new Intl.NumberFormat('en-US').format(n); } catch { return String(n); }
+      }
+      function formatDecimal(n, digits = 2) {
+        try { return new Intl.NumberFormat('en-US', { maximumFractionDigits: digits, minimumFractionDigits: digits }).format(n); } catch { return String(n.toFixed?.(digits) ?? n); }
+      }
+
+      async function load() {
+        const totalEl = document.getElementById('total');
+        const remainingEl = document.getElementById('remaining');
+        const updatedEl = document.getElementById('updated');
+        const targetEl = document.getElementById('target');
+        const daysRemainingEl = document.getElementById('days-remaining');
+        const daysSoFarEl = document.getElementById('days-so-far');
+        const paceSoFarEl = document.getElementById('pace-so-far');
+        const paceReqEl = document.getElementById('pace-required');
+        const deadlineNoteEl = document.getElementById('deadline-note');
+        const heroPaceDeltaEl = document.getElementById('hero-pace-delta');
+        const heroStateEl = document.getElementById('hero-state');
+        const heroMultiplierEl = document.getElementById('hero-multiplier');
+        const barExpectedEl = document.getElementById('bar-expected');
+        const barActualEl = document.getElementById('bar-actual');
+        const paceReqNoteEl = document.getElementById('pace-required-note');
+        targetEl.textContent = formatNumber(TARGET);
+
+        try {
+          const res = await fetch(totalsUrl, { cache: 'no-cache' });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          const total = Number(data?.units_built_since_2023_01_01 ?? 0);
+          const retrievedAt = new Date(data?.last_updated ?? Date.now());
+          const remaining = Math.max(TARGET - total, 0);
+          totalEl.textContent = formatNumber(total);
+          remainingEl.textContent = formatNumber(remaining);
+          updatedEl.textContent = data?.last_updated ?? '—';
+
+          const msElapsed = Math.max(0, retrievedAt - START);
+          const daysElapsed = msElapsed / 86400000;
+          const msLeft = Math.max(0, DEADLINE - retrievedAt);
+          const daysLeft = msLeft / 86400000;
+          daysRemainingEl.textContent = Math.floor(daysLeft);
+          deadlineNoteEl.textContent = daysLeft <= 0 ? 'Past deadline window' : '';
+          daysSoFarEl.textContent = Math.floor(daysElapsed);
+
+          const expectedByNow = TARGET * (msElapsed / Math.max(1, DEADLINE - START));
+          const aheadBehind = Math.round(total - expectedByNow);
+          const sign = aheadBehind >= 0 ? '+' : '';
+          heroPaceDeltaEl.textContent = `${sign}${formatNumber(aheadBehind)}`;
+          heroPaceDeltaEl.classList.toggle('good', aheadBehind >= 0);
+          heroPaceDeltaEl.classList.toggle('bad', aheadBehind < 0);
+          heroStateEl.textContent = aheadBehind >= 0 ? 'Ahead of pace' : 'Behind pace';
+          heroStateEl.style.background = aheadBehind >= 0 ? 'rgba(52,211,153,0.12)' : 'rgba(239,68,68,0.12)';
+          heroStateEl.style.borderColor = aheadBehind >= 0 ? 'rgba(52,211,153,0.25)' : 'rgba(239,68,68,0.25)';
+
+          const yearsElapsed = daysElapsed / 365.25;
+          const yearsLeft = daysLeft / 365.25;
+          const paceSoFar = yearsElapsed > 0 ? total / yearsElapsed : 0; // units/year
+          const paceRequired = yearsLeft > 0 ? remaining / yearsLeft : (remaining > 0 ? Infinity : 0); // units/year
+          const multiplier = paceSoFar > 0 ? (paceRequired / paceSoFar) : (paceRequired === 0 ? 0 : Infinity);
+          paceSoFarEl.textContent = paceSoFar === 0 ? '0' : formatDecimal(paceSoFar, 0);
+          paceReqEl.textContent = Number.isFinite(paceRequired) ? formatDecimal(paceRequired, 0) : '∞';
+          heroMultiplierEl.textContent = (Number.isFinite(multiplier) ? formatDecimal(multiplier, 1) : '∞') + 'x';
+          heroMultiplierEl.classList.toggle('good', multiplier <= 1);
+          heroMultiplierEl.classList.toggle('bad', multiplier > 1);
+
+          const pctExpected = Math.max(0, Math.min(100, (expectedByNow / TARGET) * 100));
+          const pctActual = Math.max(0, Math.min(100, (total / TARGET) * 100));
+          barExpectedEl.style.width = `${pctExpected}%`;
+          barActualEl.style.width = `${pctActual}%`;
+          // Update deadline in required pace note
+          try {
+            const dl = DEADLINE.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: '2-digit' });
+            paceReqNoteEl.textContent = `Average units/year needed to hit 29,049 by ${dl}`;
+          } catch {}
+
+          // Build interactive line chart from monthly series
+          buildChart({ total, retrievedAt });
+
+          // Hover for progress bar (show current expected vs actual)
+          const progressEl = document.querySelector('.progress-card .progress');
+          let progressTip = document.getElementById('progressTooltip');
+          if (!progressTip) {
+            progressTip = document.createElement('div');
+            progressTip.id = 'progressTooltip';
+            progressTip.className = 'tooltip';
+            progressTip.style.display = 'none';
+            progressEl.parentElement.appendChild(progressTip);
+          }
+          const expectedNow = Math.round(expectedByNow);
+          function onProgressMove(ev){
+            progressTip.style.display = 'block';
+            progressTip.innerHTML = `<div class="t-title">Now</div>
+              <div><span class="legend-dot" style="background:#34d399"></span>Actual: <strong>${formatNumber(total)}</strong></div>
+              <div><span class="legend-dot" style="background:#60a5fa"></span>Expected: <strong>${formatNumber(expectedNow)}</strong></div>`;
+            progressTip.style.left = `${ev.clientX}px`;
+            progressTip.style.top = `${ev.clientY - 10}px`;
+          }
+          function onProgressLeave(){ progressTip.style.display='none'; }
+          progressEl.addEventListener('mousemove', onProgressMove);
+          progressEl.addEventListener('mouseleave', onProgressLeave);
+        } catch (err) {
+          totalEl.textContent = 'N/A';
+          remainingEl.textContent = 'N/A';
+          updatedEl.textContent = '—';
+          daysRemainingEl.textContent = '—';
+          daysSoFarEl.textContent = '—';
+          paceSoFarEl.textContent = '—';
+          paceReqEl.textContent = '—';
+          heroPaceDeltaEl.textContent = '—';
+          heroMultiplierEl.textContent = '—';
+          console.error('Failed to load totals:', err);
+        }
+      }
+
+      async function buildChart({ total, retrievedAt }) {
+        try {
+          const res = await fetch(monthlyUrl, { cache: 'no-cache' });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const monthly = await res.json(); // [{month:"YYYY-MM", new_units: N}]
+          // Build cumulative actual series
+          const parseMonth = (m) => new Date(m + '-01T00:00:00');
+          const rows = monthly
+            .map(r => ({ date: parseMonth(r.month), value: Number(r.new_units || 0) }))
+            .filter(r => r.date >= START && r.date <= retrievedAt)
+            .sort((a,b) => a.date - b.date);
+          let cum = 0;
+          const actual = rows.map(r => ({ date: r.date, value: (cum += r.value) }));
+          // Ensure last point is the retrievedAt with total
+          if (actual.length === 0 || actual[actual.length-1].value !== total) {
+            actual.push({ date: retrievedAt, value: total });
+          }
+          // Expected is linear from 0 at START to TARGET at DEADLINE
+          const months = [];
+          const d0 = new Date(START.getFullYear(), START.getMonth(), 1);
+          const dEnd = new Date(retrievedAt.getFullYear(), retrievedAt.getMonth(), 1);
+          let cur = new Date(d0);
+          while (cur <= dEnd) {
+            months.push(new Date(cur));
+            cur = new Date(cur.getFullYear(), cur.getMonth()+1, 1);
+          }
+          const expected = months.map(d => ({
+            date: d,
+            value: TARGET * Math.max(0, Math.min(1, (d - START) / (DEADLINE - START)))
+          }));
+
+          renderChart({ actual, expected });
+        } catch (e) {
+          console.warn('Chart unavailable:', e);
+        }
+      }
+
+      function renderChart({ actual, expected }) {
+        const svg = document.getElementById('chart');
+        const grid = document.getElementById('grid');
+        const axisX = document.getElementById('axisX');
+        const axisY = document.getElementById('axisY');
+        const expectedPath = document.getElementById('expectedPath');
+        const actualPath = document.getElementById('actualPath');
+        const hoverLine = document.getElementById('hoverLine');
+        const tooltip = document.getElementById('tooltip');
+        const wrap = svg.parentElement;
+        const { width, height } = wrap.getBoundingClientRect();
+
+        const padL = 76, padR = 24, padT = 24, padB = 36;
+        const w = Math.max(300, width), h = Math.max(180, height);
+        svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+
+        const allDates = [...actual, ...expected].map(d => d.date);
+        const minX = Math.min(...allDates.map(d => d.getTime()));
+        const maxX = Math.max(...allDates.map(d => d.getTime()));
+        const maxY = Math.max(TARGET, ...actual.map(d => d.value), ...expected.map(d => d.value));
+
+        const x = (t) => padL + ( (t - minX) / (maxX - minX || 1) ) * (w - padL - padR);
+        const y = (v) => padT + (1 - (v / (maxY || 1))) * (h - padT - padB);
+
+        const pathFrom = (series) => series
+          .map((d, i) => `${i ? 'L' : 'M'}${x(d.date.getTime())},${y(d.value)}`)
+          .join(' ');
+
+        expectedPath.setAttribute('d', pathFrom(expected));
+        actualPath.setAttribute('d', pathFrom(actual));
+
+        // gridlines (y) and axes
+        grid.innerHTML = '';
+        axisX.innerHTML = '';
+        axisY.innerHTML = '';
+        const yTicks = 4;
+        for (let i=0;i<=yTicks;i++) {
+          const yy = padT + (i/yTicks)*(h - padT - padB);
+          const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+          line.setAttribute('x1', padL);
+          line.setAttribute('x2', w - padR);
+          line.setAttribute('y1', yy);
+          line.setAttribute('y2', yy);
+          grid.appendChild(line);
+        }
+        // Y axis line
+        const yAxisLine = document.createElementNS('http://www.w3.org/2000/svg','line');
+        yAxisLine.setAttribute('x1', padL);
+        yAxisLine.setAttribute('x2', padL);
+        yAxisLine.setAttribute('y1', padT);
+        yAxisLine.setAttribute('y2', h - padB);
+        axisY.appendChild(yAxisLine);
+        // Y axis labels
+        for (let i=0;i<=yTicks;i++) {
+          const value = Math.round((1 - i/yTicks) * maxY);
+          const yy = padT + (i/yTicks)*(h - padT - padB);
+          const txt = document.createElementNS('http://www.w3.org/2000/svg','text');
+          txt.setAttribute('x', padL - 8);
+          txt.setAttribute('y', yy + 4);
+          txt.setAttribute('text-anchor', 'end');
+          txt.textContent = formatNumber(value);
+          axisY.appendChild(txt);
+        }
+        // X axis line
+        const xAxisLine = document.createElementNS('http://www.w3.org/2000/svg','line');
+        xAxisLine.setAttribute('x1', padL);
+        xAxisLine.setAttribute('x2', w - padR);
+        xAxisLine.setAttribute('y1', h - padB);
+        xAxisLine.setAttribute('y2', h - padB);
+        axisX.appendChild(xAxisLine);
+        // X axis labels (quarterly)
+        const monthsSpan = maxX - minX;
+        const approxTicks = 6;
+        for (let i=0;i<=approxTicks;i++) {
+          const t = minX + (i/approxTicks) * monthsSpan;
+          const d = new Date(t);
+          const label = d.toLocaleDateString('en-US', { year: '2-digit', month: 'short' });
+          const xx = x(t);
+          const txt = document.createElementNS('http://www.w3.org/2000/svg','text');
+          txt.setAttribute('x', xx);
+          txt.setAttribute('y', h - padB + 16);
+          txt.setAttribute('text-anchor', 'middle');
+          txt.textContent = label;
+          axisX.appendChild(txt);
+        }
+
+        // Hover interaction
+        function nearest(series, t) {
+          let best = series[0], bd = Infinity;
+          for (const d of series) {
+            const dt = Math.abs(d.date.getTime() - t);
+            if (dt < bd) { bd = dt; best = d; }
+          }
+          return best;
+        }
+
+        function onMove(evt) {
+          const rect = svg.getBoundingClientRect();
+          const px = evt.clientX - rect.left;
+          const t = minX + ((px - padL) / (w - padL - padR)) * (maxX - minX);
+          const ex = Math.min(Math.max(t, minX), maxX);
+          const a = nearest(actual, ex);
+          const e = nearest(expected, ex);
+          const cx = x(ex);
+          hoverLine.setAttribute('x1', cx);
+          hoverLine.setAttribute('x2', cx);
+          hoverLine.setAttribute('y1', padT);
+          hoverLine.setAttribute('y2', h - padB);
+          hoverLine.setAttribute('visibility', 'visible');
+          tooltip.style.display = 'block';
+          tooltip.innerHTML = `<div class="t-title">${a.date.toLocaleDateString('en-US', { year: 'numeric', month: 'short' })}</div>
+            <div><span class="legend-dot" style="background:#34d399"></span>Actual: <strong>${formatNumber(Math.round(a.value))}</strong></div>
+            <div><span class="legend-dot" style="background:#60a5fa"></span>Expected: <strong>${formatNumber(Math.round(e.value))}</strong></div>`;
+          tooltip.style.left = `${evt.clientX}px`;
+          tooltip.style.top = `${evt.clientY - 10}px`;
+        }
+
+        function onLeave() {
+          hoverLine.setAttribute('visibility','hidden');
+          tooltip.style.display = 'none';
+        }
+
+        svg.addEventListener('mousemove', onMove);
+        svg.addEventListener('mouseleave', onLeave);
+        window.addEventListener('resize', () => renderChart({ actual, expected }));
+      }
+
+      load();
+      // Optional: refresh every hour
+      setInterval(load, 60 * 60 * 1000);
+    </script>
+  </body>
+  </html>
+
+
