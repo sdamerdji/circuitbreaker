@@ -37,16 +37,18 @@
       .pill { display: inline-block; padding: 6px 10px; border-radius: 999px; font-size: 12px; margin-left: 8px; background: rgba(255,255,255,0.08); color: var(--muted); border: 1px solid rgba(255,255,255,0.06); vertical-align: middle; }
 
       .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+      .cards.equation { display: flex; align-items: center; justify-content: center; gap: 20px; flex-wrap: wrap; }
+      .equation-symbol { font-size: 48px; font-weight: 700; color: var(--muted); flex-shrink: 0; }
       .card { background: var(--card); border-radius: 14px; padding: 18px 20px; box-shadow: var(--glow); backdrop-filter: blur(8px); }
       .label { color: var(--muted); font-size: 13px; letter-spacing: 0.02em; margin-bottom: 4px; }
       .value { font-size: 42px; font-weight: 700; line-height: 1.15; }
       .value.good { color: var(--good); }
       .value.target { color: var(--accent); }
       .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-top: 16px; }
+      .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-top: 16px; }
       .small { font-size: 12px; color: var(--muted); margin-top: 6px; }
       .bad { color: var(--bad); }
       .accent { color: var(--accent); }
-      .progress-card { margin-top: 16px; position: relative; z-index: 5; }
       .progress { height: 16px; background: rgba(255,255,255,0.06); border-radius: 999px; overflow: hidden; position: relative; }
       .progress .bar { position: absolute; top: 0; left: 0; height: 100%; transition: width 0.7s ease; }
       .bar.actual { background: linear-gradient(90deg, #34d399 0%, #10b981 100%); }
@@ -76,7 +78,7 @@
     <div class="container">
       <header>
         <h1>Circuit Breaker Dashboard</h1>
-        <div class="subtitle">Updated daily from official data</div>
+        <div class="subtitle">Updated daily</div>
       </header>
 
       <section class="hero">
@@ -85,50 +87,28 @@
           <div id="hero-pace-delta" class="hero-value">—</div>
         </div>
         <div class="hero-card">
-          <div class="hero-label">Speed up needed to catch up</div>
+          <div class="hero-label">Housing production increase needed to catch up</div>
           <div id="hero-multiplier" class="hero-value">—</div>
         </div>
       </section>
 
-
-
-      <div class="grid-2">
+      <div class="grid-3">
         <div class="card">
-            <div class="label">Days since Jan 1, 2023</div>
-            <div id="days-so-far" class="value">—</div>
+            <div class="label">Circuit breaker triggers in</div>
+            <div id="days-remaining" class="value">—</div>
+            <div id="deadline-note" class="small"></div>
           </div>
         <div class="card">
-          <div class="label">Circuit breaker triggers in</div>
-          <div id="days-remaining" class="value">—</div>
-          <div id="deadline-note" class="small"></div>
-        </div>
-
-      </div>
-
-      <div class="grid-2">
-        <div class="card">
-          <div class="label">Pace so far</div>
-          <div class="small">Average units/year since 2023-01-01</div>
+          <div class="label">Production since Jan 1, 2023</div>
           <div id="pace-so-far" class="value">—</div>
         </div>
         <div class="card">
-          <div class="label">Required pace</div>
-          <div id="pace-required-note" class="small">Units/year needed to hit 29,049</div>
+          <div class="label">Now needed to avoid circuit breaker</div>
           <div id="pace-required" class="value">—</div>
         </div>
       </div>
 
-      <div class="card progress-card">
-        <div class="label">Progress vs. linear pace</div>
-        <div class="progress" aria-label="Progress">
-          <div id="bar-expected" class="bar expected" style="width:0%"></div>
-          <div id="bar-actual" class="bar actual" style="width:0%"></div>
-        </div>
-        <div class="progress-legend">
-          <span class="legend-item"><span class="legend-swatch" style="background:#93c5fd"></span>Expected by now</span>
-          <span class="legend-item"><span class="legend-swatch" style="background:#34d399"></span>Actual</span>
-        </div>
-      </div>
+ 
 
       <div class="card chart-card">
         <div class="label">Cumulative progress (hover for values)</div>
@@ -144,17 +124,19 @@
           <div id="tooltip" class="tooltip" style="display:none"></div>
         </div>
       </div>
-      <div class="cards" style="margin-top:16px">
+      <div class="cards equation" style="margin-top:16px">
         <div class="card">
-          <div class="label">Total units</div>
+            <div class="label">Circuit Breaker Threshold</div>
+            <div id="target" class="value target">29,049</div>
+          </div>
+        <div class="equation-symbol">−</div>
+        <div class="card">
+          <div class="label">Units with Issued Building Permits</div>
           <div id="total" class="value good">—</div>
         </div>
+        <div class="equation-symbol">=</div>
         <div class="card">
-          <div class="label">Target</div>
-          <div id="target" class="value target">29,049</div>
-        </div>
-        <div class="card">
-          <div class="label">Remaining to target</div>
+          <div class="label">Units left to permit</div>
           <div id="remaining" class="value">—</div>
         </div>
       </div>
@@ -195,17 +177,14 @@
         const updatedEl = document.getElementById('updated');
         const targetEl = document.getElementById('target');
         const daysRemainingEl = document.getElementById('days-remaining');
-        const daysSoFarEl = document.getElementById('days-so-far');
         const paceSoFarEl = document.getElementById('pace-so-far');
         const paceReqEl = document.getElementById('pace-required');
         const deadlineNoteEl = document.getElementById('deadline-note');
         const heroPaceDeltaEl = document.getElementById('hero-pace-delta');
         const heroStateEl = document.getElementById('hero-state');
         const heroMultiplierEl = document.getElementById('hero-multiplier');
-        const barExpectedEl = document.getElementById('bar-expected');
-        const barActualEl = document.getElementById('bar-actual');
-        const paceReqNoteEl = document.getElementById('pace-required-note');
-        targetEl.textContent = formatNumber(TARGET);
+
+        targetEl.textContent = formatNumber(TARGET) + ' units';
 
         try {
           const res = await fetch(totalsUrl, { cache: 'no-cache' });
@@ -214,8 +193,8 @@
           const total = Number(data?.units_built_since_2023_01_01 ?? 0);
           const retrievedAt = new Date(data?.last_updated ?? Date.now());
           const remaining = Math.max(TARGET - total, 0);
-          totalEl.textContent = formatNumber(total);
-          remainingEl.textContent = formatNumber(remaining);
+          totalEl.textContent = formatNumber(total) + ' units';
+          remainingEl.textContent = formatNumber(remaining) + ' units';
           updatedEl.textContent = data?.last_updated ?? '—';
 
           const msElapsed = Math.max(0, retrievedAt - START);
@@ -224,7 +203,6 @@
           const daysLeft = msLeft / 86400000;
           daysRemainingEl.textContent = Math.floor(daysLeft) + ' days';
           deadlineNoteEl.textContent = daysLeft <= 0 ? 'Past deadline window' : '';
-          daysSoFarEl.textContent = Math.floor(daysElapsed) + ' days';
 
           const expectedByNow = TARGET * (msElapsed / Math.max(1, DEADLINE - START));
           const aheadBehind = Math.round(total - expectedByNow);
@@ -241,53 +219,23 @@
           const paceSoFar = yearsElapsed > 0 ? total / yearsElapsed : 0; // units/year
           const paceRequired = yearsLeft > 0 ? remaining / yearsLeft : (remaining > 0 ? Infinity : 0); // units/year
           const multiplier = paceSoFar > 0 ? (paceRequired / paceSoFar) : (paceRequired === 0 ? 0 : Infinity);
-          paceSoFarEl.textContent = paceSoFar === 0 ? '0' : formatDecimal(paceSoFar, 0);
-          paceReqEl.textContent = Number.isFinite(paceRequired) ? formatDecimal(paceRequired, 0) : '∞';
+          paceSoFarEl.textContent = paceSoFar === 0 ? '0' : formatDecimal(paceSoFar, 0)  + ' units/year';
+          paceReqEl.textContent = Number.isFinite(paceRequired) ? formatDecimal(paceRequired, 0) + ' units/year' : '∞';
           heroMultiplierEl.textContent = (Number.isFinite(multiplier) ? formatDecimal(multiplier, 1) : '∞') + 'x';
           heroMultiplierEl.classList.toggle('good', multiplier <= 1);
           heroMultiplierEl.classList.toggle('bad', multiplier > 1);
 
-          const pctExpected = Math.max(0, Math.min(100, (expectedByNow / TARGET) * 100));
-          const pctActual = Math.max(0, Math.min(100, (total / TARGET) * 100));
-          barExpectedEl.style.width = `${pctExpected}%`;
-          barActualEl.style.width = `${pctActual}%`;
-          // Update deadline in required pace note
-          try {
-            const dl = DEADLINE.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: '2-digit' });
-            paceReqNoteEl.textContent = `Average units/year needed to hit 29,049 by ${dl}`;
-          } catch {}
+
 
           // Build interactive line chart from monthly series
           buildChart({ total, retrievedAt });
 
-          // Hover for progress bar (show current expected vs actual)
-          const progressEl = document.querySelector('.progress-card .progress');
-          let progressTip = document.getElementById('progressTooltip');
-          if (!progressTip) {
-            progressTip = document.createElement('div');
-            progressTip.id = 'progressTooltip';
-            progressTip.className = 'tooltip';
-            progressTip.style.display = 'none';
-            progressEl.parentElement.appendChild(progressTip);
-          }
-          const expectedNow = Math.round(expectedByNow);
-          function onProgressMove(ev){
-            progressTip.style.display = 'block';
-            progressTip.innerHTML = `<div class="t-title">Now</div>
-              <div><span class="legend-dot" style="background:#34d399"></span>Actual: <strong>${formatNumber(total)}</strong></div>
-              <div><span class="legend-dot" style="background:#60a5fa"></span>Expected: <strong>${formatNumber(expectedNow)}</strong></div>`;
-            progressTip.style.left = `${ev.clientX}px`;
-            progressTip.style.top = `${ev.clientY - 10}px`;
-          }
-          function onProgressLeave(){ progressTip.style.display='none'; }
-          progressEl.addEventListener('mousemove', onProgressMove);
-          progressEl.addEventListener('mouseleave', onProgressLeave);
+
         } catch (err) {
           totalEl.textContent = 'N/A';
           remainingEl.textContent = 'N/A';
           updatedEl.textContent = '—';
           daysRemainingEl.textContent = '—';
-          daysSoFarEl.textContent = '—';
           paceSoFarEl.textContent = '—';
           paceReqEl.textContent = '—';
           heroPaceDeltaEl.textContent = '—';
