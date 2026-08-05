@@ -165,10 +165,14 @@
   },
   {
     "month": "2026-06",
-    "new_units": 526.0
+    "new_units": 524.0
   },
   {
     "month": "2026-07",
     "new_units": 76.0
+  },
+  {
+    "month": "2026-08",
+    "new_units": 2.0
   }
 ]
